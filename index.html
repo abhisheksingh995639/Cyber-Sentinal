@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Sentinel - Societal Threat Analysis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1a2e;
+        }
+        .card-glow {
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+            transition: all 0.3s ease-in-out;
+        }
+        .filter-btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .filter-btn.active {
+            background-color: #f59e0b;
+            color: #0d1a2e;
+            font-weight: 600;
+        }
+        .dot-flashing {
+            position: relative;
+            width: 6px;
+            height: 6px;
+            border-radius: 5px;
+            background-color: #f59e0b;
+            color: #f59e0b;
+            animation: dotFlashing 1s infinite linear alternate;
+            animation-delay: .5s;
+        }
+        .dot-flashing::before, .dot-flashing::after {
+            content: '';
+            display: inline-block;
+            position: absolute;
+            top: 0;
+        }
+        .dot-flashing::before {
+            left: -10px;
+            width: 6px;
+            height: 6px;
+            border-radius: 5px;
+            background-color: #f59e0b;
+            color: #f59e0b;
+            animation: dotFlashing 1s infinite alternate;
+            animation-delay: 0s;
+        }
+        .dot-flashing::after {
+            left: 10px;
+            width: 6px;
+            height: 6px;
+            border-radius: 5px;
+            background-color: #f59e0b;
+            color: #f59e0b;
+            animation: dotFlashing 1s infinite alternate;
+            animation-delay: 1s;
+        }
+        @keyframes dotFlashing {
+            0% { background-color: #f59e0b; }
+            50%, 100% { background-color: rgba(245, 159, 11, 0.3); }
+        }
+        @keyframes card-flash-animation {
+            0%, 100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); border-color: rgba(239, 68, 68, 0.5); }
+            50% { box-shadow: 0 0 30px rgba(239, 68, 68, 1); border-color: rgba(239, 68, 68, 1); }
+        }
+        .card-flash {
+            animation: card-flash-animation 1.2s ease-in-out;
+        }
+        #case-file-modal {
+            background-color: rgba(0,0,0,0.7);
+            transition: opacity 0.3s ease;
+        }
+        #threat-map {
+            height: 450px;
+            border-radius: 0.5rem;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body class="text-slate-200">
+    <div class="container mx-auto p-4 md:p-6">
+        <header class="flex items-center justify-between mb-4 pb-4 border-b border-slate-700">
+            <div class="flex items-center">
+                <svg class="h-10 w-10 text-amber-500 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                </svg>
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold text-slate-100">CYBER SENTINEL</h1>
+                    <p class="text-sm text-slate-400">Societal Threat Analysis Dashboard | M.P. Police Hackathon</p>
+                </div>
+            </div>
+            <button id="enable-audio-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                Enable Audio
+            </button>
+        </header>
+
+        <main>
+            <div id="status-bar" class="flex items-center justify-center gap-4 mb-4 p-3 bg-slate-800/50 rounded-lg">
+                <div class="flex items-center space-x-3 flex-shrink-0">
+                    <div id="status-indicator" class="dot-flashing"></div>
+                    <p id="status-text" class="text-sm text-amber-400 font-medium">Initializing system...</p>
+                </div>
+            </div>
+            
+            <div id="dashboard">
+                <div id="error-message" class="text-center py-12 bg-slate-800/80 rounded-lg hidden">
+                    <svg class="mx-auto h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 class="mt-2 text-lg font-medium text-slate-100">OPERATION FAILED</h3>
+                    <p id="error-text" class="mt-1 text-sm text-slate-400">Could not fetch data. Please check API credentials or network status.</p>
+                </div>
+
+                <div id="results-container" class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="md:col-span-1 flex flex-col gap-6">
+                        <div class="p-4 bg-slate-800/50 rounded-lg">
+                            <h4 class="text-md font-semibold text-slate-300 mb-2">Filter by Category</h4>
+                            <div id="category-list" class="flex flex-wrap gap-2"></div>
+                        </div>
+                        <div class="p-4 bg-slate-800/50 rounded-lg">
+                            <h4 class="text-md font-semibold text-slate-300 mb-2">Regional Threat Monitoring (M.P.)</h4>
+                            <div id="location-list" class="flex flex-wrap gap-2"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="md:col-span-3">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <div class="bg-slate-800 p-6 rounded-lg shadow-lg border border-slate-700">
+                                <div class="flex items-center">
+                                    <svg class="h-8 w-8 text-slate-500 mr-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                    </svg>
+                                    <div>
+                                        <h4 class="text-sm font-semibold text-slate-400">Total Posts Analyzed</h4>
+                                        <p id="total-posts" class="text-3xl font-bold text-slate-100">0</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-slate-800 p-6 rounded-lg shadow-lg border border-slate-700">
+                                <div class="flex items-center">
+                                    <svg class="h-8 w-8 text-orange-500/80 mr-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.25-8.25-3.286Zm0 13.036h.008v.008H12v-.008Z" />
+                                    </svg>
+                                    <div>
+                                        <h4 class="text-sm font-semibold text-slate-400">Total Negative Posts</h4>
+                                        <p id="negative-posts" class="text-3xl font-bold text-orange-500">0</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="high-priority-card" class="bg-red-500/10 p-6 rounded-lg shadow-lg border border-red-500/50 card-glow">
+                                 <div class="flex items-center">
+                                    <svg class="h-8 w-8 text-red-500 mr-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                                    </svg>
+                                    <div>
+                                        <h4 class="text-sm font-semibold text-slate-400">High-Priority Threats</h4>
+                                        <p id="high-priority-threats" class="text-3xl font-bold text-red-500">0</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                            <div class="lg:col-span-2 bg-slate-800 p-6 rounded-lg shadow-lg border border-slate-700">
+                                <h4 class="text-lg font-semibold mb-4 text-slate-200">Sentiment Distribution</h4>
+                                <canvas id="sentiment-chart"></canvas>
+                            </div>
+                            <div class="lg:col-span-3 bg-slate-800 p-6 rounded-lg shadow-lg border border-slate-700">
+                                <h4 class="text-lg font-semibold mb-4 text-slate-200">High-Priority Feed</h4>
+                                <div id="post-list" class="space-y-3 max-h-[28rem] overflow-y-auto pr-2">
+                                    <p id="feed-placeholder" class="text-slate-400 text-center py-8">Awaiting data stream...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                            <div class="bg-slate-800 p-6 rounded-lg shadow-lg border border-slate-700">
+                                <h4 class="text-lg font-semibold mb-4 text-slate-200">Geospatial Threat Heatmap (M.P.)</h4>
+                                <div id="threat-map"></div>
+                            </div>
+                             <div class="bg-slate-800 p-6 rounded-lg shadow-lg border border-slate-700">
+                                <h4 class="text-lg font-semibold mb-4 text-slate-200">Threat Keyword Trends</h4>
+                                 <canvas id="trend-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="case-file-modal" class="fixed inset-0 z-50 items-center justify-center hidden p-4" style="background-color: rgba(13,26,46,0.8);">
+        <div class="relative w-full max-w-2xl max-h-full">
+            <div class="relative bg-slate-800 rounded-lg shadow-2xl border border-slate-600">
+                <div class="flex items-start justify-between p-4 border-b rounded-t border-slate-600">
+                    <h3 class="text-xl font-semibold text-slate-100">
+                        Case File: High-Priority Post
+                    </h3>
+                    <button type="button" id="close-modal-btn" class="text-slate-400 bg-transparent hover:bg-slate-600 hover:text-white rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center">
+                        <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                        </svg>
+                        <span class="sr-only">Close modal</span>
+                    </button>
+                </div>
+                <div id="modal-body" class="p-6 space-y-6">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const statusBar = document.getElementById('status-bar');
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+        const errorMessage = document.getElementById('error-message');
+        const errorText = document.getElementById('error-text');
+        const totalPostsEl = document.getElementById('total-posts');
+        const negativePostsEl = document.getElementById('negative-posts');
+        const highPriorityThreatsEl = document.getElementById('high-priority-threats');
+        const highPriorityCard = document.getElementById('high-priority-card');
+        const postListEl = document.getElementById('post-list');
+        const categoryListEl = document.getElementById('category-list');
+        const locationListEl = document.getElementById('location-list');
+        const feedPlaceholder = document.getElementById('feed-placeholder');
+        const enableAudioBtn = document.getElementById('enable-audio-btn');
+        const caseFileModal = document.getElementById('case-file-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const modalBody = document.getElementById('modal-body');
+        
+        let sentimentChart = null, trendChart = null, threatMap = null;
+        let allPostsData = [], mapMarkers = [];
+        let lastKnownHighPriorityCount = 0;
+        let audioCtx = null;
+        
+        const MP_SUBREDDITS = ['Bhopal', 'Indore', 'Gwalior', 'Jabalpur'];
+        const TARGET_SUBREDDITS = ['News', 'worldnews','politics','technology','mentalhealth','Anxiety','relationship_advice','TrueOffMyChest','antiwork','collapse','UpliftingNews','india','indiaspeaks'];
+        const ANALYSIS_TARGET = 10000;
+        
+        const REGIONAL_LOCATIONS = {
+            'Bhopal': ['bhopal'], 'Indore': ['indore'], 'Gwalior': ['gwalior'], 'Jabalpur': ['jabalpur'], 'Ujjain': ['ujjain'], 'Sagar': ['sagar'],
+            'Rewa': ['rewa'], 'Satna': ['satna'], 'Ratlam': ['ratlam'], 'Dewas': ['dewas'], 'Singrauli': ['singrauli'], 'Burhanpur': ['burhanpur'],
+            'Khandwa': ['khandwa'], 'Bhind': ['bhind'], 'Chhindwara': ['chhindwara'], 'Guna': ['guna'], 'Shivpuri': ['shivpuri'],
+            'Vidisha': ['vidisha'], 'Damoh': ['damoh'], 'Mandsaur': ['mandsaur'], 'Khargone': ['khargone'], 'Neemuch': ['neemuch'],
+            'Hoshangabad': ['hoshangabad'], 'Itarsi': ['itarsi'], 'Sehore': ['sehore'], 'Morena': ['morena'], 'Betul': ['betul'],
+            'Seoni': ['seoni'], 'Datia': ['datia'], 'Dhar': ['dhar']
+        };
+
+        const TREND_KEYWORDS = ['protest', 'violence', 'riot', 'threat', 'crime'];
+        let trendData = TREND_KEYWORDS.reduce((acc, kw) => ({ ...acc, [kw]: 0 }), {});
+
+        const LOCATION_COORDS = {
+            'bhopal': [23.2599, 77.4126], 'indore': [22.7196, 75.8577], 'gwalior': [26.2183, 78.1828], 'jabalpur': [23.1815, 79.9864],
+            'ujjain': [23.1793, 75.7849], 'sagar': [23.8388, 78.7378], 'rewa': [24.5353, 81.2985], 'satna': [24.5855, 80.8335],
+            'ratlam': [23.3285, 75.0368], 'dewas': [22.9676, 76.0484]
+        };
+
+        enableAudioBtn.addEventListener('click', () => {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            playAlertSound();
+            enableAudioBtn.textContent = 'Audio Enabled';
+            enableAudioBtn.disabled = true;
+            enableAudioBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        });
+
+        function playAlertSound() {
+            if (!audioCtx || audioCtx.state !== 'running') return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(980, audioCtx.currentTime); 
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.8);
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + 0.8);
+        }
+
+        function triggerAlert() {
+            playAlertSound();
+            highPriorityCard.classList.add('card-flash');
+            setTimeout(() => {
+                highPriorityCard.classList.remove('card-flash');
+            }, 1200);
+        }
+
+        async function fetchPostsFromSubreddit(subreddit, after = null) {
+             try {
+                let url = `/api/reddit?subreddit=${subreddit}`;
+                if (after) url += `&after=${after}`;
+                const response = await fetch(url);
+                if (!response.ok) {
+                    console.error(`Proxy failed for r/${subreddit}, status: ${response.status}`);
+                    return null; 
+                }
+                const data = await response.json();
+                return { posts: data.data.children, after: data.data.after };
+             } catch(error) {
+                console.error(`Error fetching from proxy for r/${subreddit}:`, error);
+                return null;
+             }
+        }
+
+        async function fetchUserActivity(username) {
+            try {
+                const url = `/api/user-activity?username=${username}`;
+                const response = await fetch(url);
+                if (!response.ok) {
+                    console.error(`Failed to fetch activity for u/${username}, status: ${response.status}`);
+                    return [];
+                }
+                const data = await response.json();
+                return data.data.children;
+            } catch (error) {
+                console.error(`Error fetching activity for u/${username}:`, error);
+                return [];
+            }
+        }
+        
+        const getSentimentAndThreat = (text) => {
+            let threatScore = 0;
+            const threatWeights = {
+                'attack': 10, 'bomb': 10, 'gun': 10, 'weapon': 10, 'arson': 10, 'smuggling': 10, 'trafficking': 10, 'assault': 10,
+                'suicide': 8, 'kill myself': 8, 'want to die': 8, 'self-harm': 8,
+                'riot': 5, 'violence': 5, 'threat': 5, 'crime': 5, 'theft': 5, 'mob': 5,
+                'protest': 2, 'corruption': 2, 'scam': 2, 'harassment': 2
+            };
+
+            for (const keyword in threatWeights) {
+                const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+                if (regex.test(text)) {
+                    threatScore += threatWeights[keyword];
+                }
+            }
+
+            let threatLevel = 'None';
+            if (threatScore >= 10) {
+                threatLevel = 'High';
+            } else if (threatScore >= 5) {
+                threatLevel = 'Medium';
+            }
+
+            const lowerText = text.toLowerCase();
+            const positiveWords = ['great', 'helps', 'positive', 'hope', 'change', 'happy', 'wonderful'];
+            const negativeWords = ['failure', 'toxic', 'hate', 'awful', 'terrible', 'sad', 'scared'];
+            let sentimentScore = 0;
+            negativeWords.forEach(word => { if (lowerText.includes(word)) sentimentScore--; });
+            positiveWords.forEach(word => { if (lowerText.includes(word)) sentimentScore++; });
+            
+            let sentiment = 'neutral';
+            if (threatLevel !== 'None' || sentimentScore < 0) {
+                sentiment = 'negative';
+            } else if (sentimentScore > 0) {
+                sentiment = 'positive';
+            }
+
+            return { sentiment, threatLevel };
+        };
+
+        const setupFilters = () => {
+            categoryListEl.innerHTML = '';
+            const allBtn = document.createElement('button');
+            allBtn.className = 'filter-btn active bg-slate-700 text-slate-300 text-xs font-medium px-3 py-1.5 rounded-full';
+            allBtn.textContent = 'All Categories';
+            allBtn.dataset.filterType = 'all';
+            categoryListEl.appendChild(allBtn);
+            TARGET_SUBREDDITS.forEach(sub => {
+                const btn = document.createElement('button');
+                btn.className = 'filter-btn bg-slate-700 text-slate-300 text-xs font-medium px-3 py-1.5 rounded-full';
+                btn.textContent = sub === 'News' ? 'News' : `r/${sub}`;
+                btn.dataset.filterType = 'category';
+                btn.dataset.filterValue = sub;
+                categoryListEl.appendChild(btn);
+            });
+            locationListEl.innerHTML = '';
+            Object.keys(REGIONAL_LOCATIONS).forEach(loc => {
+                 const btn = document.createElement('button');
+                btn.className = 'filter-btn bg-slate-700 text-slate-300 text-xs font-medium px-3 py-1.5 rounded-full';
+                btn.textContent = loc;
+                btn.dataset.filterType = 'location';
+                btn.dataset.filterValue = loc;
+                locationListEl.appendChild(btn);
+            });
+            const handleFilterClick = (e) => {
+                if (!e.target.classList.contains('filter-btn')) return;
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                const filterType = e.target.dataset.filterType;
+                const filterValue = e.target.dataset.filterValue;
+                let dataToDisplay = allPostsData;
+                if (filterType === 'category') {
+                    dataToDisplay = allPostsData.filter(post => post.subreddit === filterValue);
+                } else if (filterType === 'location') {
+                    const keywords = REGIONAL_LOCATIONS[filterValue];
+                    dataToDisplay = allPostsData.filter(post => 
+                        keywords.some(kw => post.text.toLowerCase().includes(kw))
+                    );
+                }
+                updateDashboardUI(dataToDisplay, false);
+            };
+            categoryListEl.addEventListener('click', handleFilterClick);
+            locationListEl.addEventListener('click', handleFilterClick);
+        };
+
+        const updateDashboardUI = (data, animateNumbers = true) => {
+            let positiveCount = 0, negativeCount = 0, neutralCount = 0, highPriorityCount = 0;
+            const priorityFeedData = data.filter(p => p.threatLevel === 'High' || p.threatLevel === 'Medium');
+            postListEl.innerHTML = '';
+            if (!priorityFeedData || priorityFeedData.length === 0) {
+                feedPlaceholder.classList.remove('hidden');
+                feedPlaceholder.textContent = 'No high-priority threats detected in this filter.';
+            } else {
+                feedPlaceholder.classList.add('hidden');
+            }
+            data.forEach(post => {
+                if (post.sentiment === 'positive') positiveCount++;
+                else if (post.sentiment === 'negative') negativeCount++;
+                else if (post.sentiment === 'neutral') neutralCount++;
+                if (post.threatLevel === 'High') highPriorityCount++;
+            });
+            if (animateNumbers && highPriorityCount > lastKnownHighPriorityCount) triggerAlert();
+            lastKnownHighPriorityCount = highPriorityCount;
+            document.getElementById('total-posts').textContent = data.length.toLocaleString();
+            document.getElementById('negative-posts').textContent = negativeCount.toLocaleString();
+            highPriorityThreatsEl.textContent = highPriorityCount.toLocaleString();
+            priorityFeedData.sort((a, b) => ({ 'High': 0, 'Medium': 1 }[a.threatLevel] - { 'High': 0, 'Medium': 1 }[b.threatLevel]));
+            priorityFeedData.slice(0, 100).forEach(post => {
+                const threatStyles = { High: 'border-red-500 bg-red-500/10', Medium: 'border-amber-500 bg-amber-500/10' };
+                const postElement = document.createElement('div');
+                postElement.className = `p-3 rounded-md border-l-4 transition-all hover:bg-slate-700 cursor-pointer ${threatStyles[post.threatLevel]}`;
+                postElement.dataset.postId = post.id;
+                
+                let sourceText;
+                if (post.source === 'News') {
+                    sourceText = `Source: <span class="font-semibold text-slate-400">${post.user}</span>`;
+                } else { // Reddit
+                    sourceText = `u/${post.user} in <span class="font-semibold text-slate-400">r/${post.subreddit}</span>`;
+                }
+
+                postElement.innerHTML = `<p class="text-sm text-slate-300 pointer-events-none">${post.displayText}</p><div class="text-xs text-slate-500 mt-2 flex justify-between items-center pointer-events-none"><span>${sourceText}</span><span class="font-bold capitalize text-xs px-2 py-0.5 rounded-full ${post.threatLevel === 'High' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}">${post.threatLevel} Priority</span></div>`;
+                postListEl.appendChild(postElement);
+            });
+            updateChart(positiveCount, negativeCount, neutralCount, animateNumbers);
+            updateTrendChart();
+            updateThreatMap(priorityFeedData);
+        };
+
+        const updateChart = (positive, negative, neutral, animate = true) => {
+            const ctx = document.getElementById('sentiment-chart').getContext('2d');
+            if(sentimentChart) { sentimentChart.destroy(); }
+            sentimentChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Negative', 'Positive', 'Neutral'],
+                    datasets: [{
+                        label: 'Sentiment',
+                        data: [negative, positive, neutral],
+                        backgroundColor: ['rgba(239, 68, 68, 0.7)', 'rgba(34, 197, 94, 0.7)', 'rgba(100, 116, 139, 0.7)'],
+                        borderColor: '#0d1a2e',
+                        borderWidth: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    cutout: '70%',
+                    plugins: { 
+                        legend: { 
+                            position: 'bottom', 
+                            labels: { color: '#cbd5e1', padding: 20, font: { size: 14 } }
+                        } 
+                    },
+                    animation: { duration: animate ? 500 : 0 }
+                }
+            });
+        };
+
+        const updateTrendChart = () => {
+            const ctx = document.getElementById('trend-chart').getContext('2d');
+            const chartData = TREND_KEYWORDS.map(kw => trendData[kw]);
+
+            if (!trendChart) {
+                trendChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: TREND_KEYWORDS,
+                        datasets: [{
+                            label: 'Total Keyword Mentions',
+                            data: chartData,
+                            backgroundColor: ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e'],
+                            borderColor: '#0d1a2e',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        scales: {
+                            y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155'} },
+                            x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155'} }
+                        },
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+            } else {
+                trendChart.data.datasets[0].data = chartData;
+                trendChart.update();
+            }
+        };
+
+        function initializeMap() {
+            threatMap = L.map('threat-map').setView([24.5, 78.5], 6);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(threatMap);
+        }
+
+        function updateThreatMap(data) {
+            if (!threatMap) return;
+            mapMarkers.forEach(marker => marker.remove());
+            mapMarkers = [];
+            data.forEach(post => {
+                const postText = post.text.toLowerCase();
+                Object.keys(LOCATION_COORDS).forEach(loc => {
+                    if (postText.includes(loc)) {
+                        const marker = L.circleMarker(LOCATION_COORDS[loc], {
+                            radius: 8,
+                            color: post.threatLevel === 'High' ? '#ef4444' : '#f59e0b',
+                            fillOpacity: 0.7
+                        }).addTo(threatMap);
+                        marker.bindPopup(`<b>${post.threatLevel} Priority</b><br>${post.displayText}`);
+                        mapMarkers.push(marker);
+                    }
+                });
+            });
+        }
+
+        closeModalBtn.addEventListener('click', () => caseFileModal.classList.add('hidden'));
+        postListEl.addEventListener('click', (e) => {
+            const postElement = e.target.closest('[data-post-id]');
+            if (postElement) openCaseFile(allPostsData.find(p => p.id === postElement.dataset.postId));
+        });
+
+        function openCaseFile(post) {
+            let userText, sourceText, verifyText;
+            if (post.source === 'News') {
+                userText = 'N/A';
+                sourceText = post.user; // Publication name
+                verifyText = 'Article';
+            } else { // Reddit
+                userText = `u/${post.user}`;
+                sourceText = `r/${post.subreddit}`;
+                verifyText = 'Reddit';
+            }
+
+            modalBody.innerHTML = `
+                <div id="initial-case-info">
+                    <div><span class="text-sm font-semibold text-slate-400">User:</span><span class="text-sm text-slate-200 ml-2">${userText}</span></div>
+                    <div><span class="text-sm font-semibold text-slate-400">Source:</span><span class="text-sm text-slate-200 ml-2">${sourceText}</span></div>
+                    <div class="mt-4"><p class="text-base leading-relaxed text-slate-300">${post.text}</p></div>
+                    <div class="flex items-center justify-between mt-6 space-x-4">
+                        <a href="${post.permalink}" target="_blank" class="text-blue-500 hover:underline text-sm">Verify on ${verifyText}</a>
+                        <div class="flex items-center space-x-2">
+                           <button id="analyze-user-btn" data-username="${post.user}" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Analyze User</button>
+                           <button id="generate-pdf-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Generate PDF</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="user-analysis-results" class="hidden"></div>`;
+            caseFileModal.classList.remove('hidden');
+            
+            document.getElementById('generate-pdf-btn').addEventListener('click', () => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                const pageWidth = doc.internal.pageSize.getWidth();
+                doc.setFontSize(18);
+                doc.text("Cyber Sentinel - High-Priority Case File", pageWidth / 2, 20, { align: 'center' });
+                doc.setFontSize(11);
+                doc.setTextColor(100);
+                doc.text(`Report Generated: ${new Date().toLocaleString()}`, 14, 30);
+                doc.setLineWidth(0.5);
+                doc.line(14, 35, pageWidth - 14, 35);
+                doc.setFontSize(12);
+                doc.text(`Author: ${userText}`, 14, 45);
+                doc.text(`Source: ${sourceText}`, 14, 52);
+                doc.text(`Threat Level: ${post.threatLevel}`, 14, 59);
+                doc.text(`Permalink: ${post.permalink}`, 14, 66);
+                doc.line(14, 75, pageWidth - 14, 75);
+                doc.setFont(undefined, 'bold');
+                doc.text("Post Content:", 14, 85);
+                doc.setFont(undefined, 'normal');
+                const textLines = doc.splitTextToSize(post.text, pageWidth - 28);
+                doc.text(textLines, 14, 92);
+                doc.save(`casefile-${post.id.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
+            });
+            
+            document.getElementById('analyze-user-btn').addEventListener('click', async (e) => {
+                const username = e.target.dataset.username;
+                const button = e.target;
+                button.textContent = 'Analyzing...';
+                button.disabled = true;
+
+                const userActivity = await fetchUserActivity(username);
+                const resultsContainer = document.getElementById('user-analysis-results');
+                document.getElementById('initial-case-info').classList.add('hidden');
+                resultsContainer.classList.remove('hidden');
+
+                if (userActivity.length === 0) {
+                    resultsContainer.innerHTML = '<p class="text-slate-400">Could not retrieve user activity or user has no recent posts/comments.</p>';
+                    return;
+                }
+                let highCount = 0;
+                let mediumCount = 0;
+                userActivity.forEach(item => {
+                    const activity = item.data;
+                    const text = activity.title || activity.body || '';
+                    const { threatLevel } = getSentimentAndThreat(text);
+                    if (threatLevel === 'High') highCount++;
+                    if (threatLevel === 'Medium') mediumCount++;
+                });
+                resultsContainer.innerHTML = `
+                    <h4 class="text-lg font-semibold text-slate-200 mb-2">User Activity Analysis: u/${username}</h4>
+                    <p class="text-slate-300">Analysis of last ${userActivity.length} posts/comments:</p>
+                    <ul class="list-disc list-inside mt-2 space-y-1 text-slate-300">
+                        <li><span class="font-bold text-red-500">${highCount}</span> High-Priority posts/comments found.</li>
+                        <li><span class="font-bold text-amber-500">${mediumCount}</span> Medium-Priority posts/comments found.</li>
+                    </ul>`;
+            });
+        }
+        
+        async function initializeDashboard() {
+            setupFilters();
+            updateChart(0, 0, 1, false);
+            initializeMap();
+            updateTrendChart();
+
+            // STAGE 1: NEWS
+            statusText.textContent = "Stage 1: Fetching recent news articles...";
+            try {
+                const newsResponse = await fetch('/api/get-news');
+                if (newsResponse.ok) {
+                    const newsArticles = await newsResponse.json();
+                    const processedNews = newsArticles.map(article => {
+                        const { sentiment, threatLevel } = getSentimentAndThreat(article.text);
+                        return { ...article, displayText: article.text.substring(0, 300) + '...', sentiment, threatLevel };
+                    });
+                    allPostsData.push(...processedNews);
+                    updateDashboardUI(allPostsData, true);
+                }
+            } catch (error) {
+                console.error("Failed to fetch news:", error);
+            }
+
+            // Reddit Auth Check
+            statusText.textContent = "Authenticating with Reddit API...";
+            const tokenCheckResult = await fetchPostsFromSubreddit(MP_SUBREDDITS[0]);
+            if (!tokenCheckResult) {
+                statusText.textContent = "Reddit Authentication Failed. Continuing with News data.";
+            } else {
+                 // STAGE 2: REDDIT
+                let afterTokens = {};
+                let mpExhausted = false;
+                while (!mpExhausted && allPostsData.length < ANALYSIS_TARGET) {
+                    const { posts: newPosts, exhausted } = await processSubredditBatch(MP_SUBREDDITS, afterTokens);
+                    mpExhausted = exhausted;
+                    if (newPosts.length > 0) {
+                        allPostsData.push(...newPosts);
+                        updateDashboardUI(allPostsData, true);
+                    }
+                    statusText.textContent = `Stage 2: Analyzing M.P. Reddit Data... ${allPostsData.length.toLocaleString()}`;
+                    await new Promise(res => setTimeout(res, 1000));
+                }
+
+                let generalExhausted = false;
+                while (allPostsData.length < ANALYSIS_TARGET && !generalExhausted) {
+                    const { posts: newPosts, exhausted } = await processSubredditBatch(TARGET_SUBREDDITS, afterTokens);
+                    generalExhausted = exhausted;
+                    if (newPosts.length > 0) {
+                        allPostsData.push(...newPosts);
+                        updateDashboardUI(allPostsData, true);
+                    }
+                    statusText.textContent = `Stage 2: Expanding to National Reddit Data... ${allPostsData.length.toLocaleString()}`;
+                    if (generalExhausted && mpExhausted) break;
+                    await new Promise(res => setTimeout(res, 1000)); 
+                }
+            }
+            
+            // FINALIZATION
+            const finalCount = allPostsData.length.toLocaleString();
+            statusText.textContent = `Analysis Complete. All available posts processed (${finalCount}).`;
+            statusIndicator.classList.add('hidden');
+        }
+        
+        async function processSubredditBatch(subreddits, afterTokens) {
+            let allPostsFound = [];
+            let isExhausted = true;
+            for (const subreddit of subreddits) {
+                if (allPostsData.length + allPostsFound.length >= ANALYSIS_TARGET) break;
+                if (afterTokens[subreddit] === null && afterTokens.hasOwnProperty(subreddit)) continue;
+
+                const result = await fetchPostsFromSubreddit(subreddit, afterTokens[subreddit]);
+                if (!result) continue;
+
+                const { posts: rawData, after: newAfter } = result;
+                afterTokens[subreddit] = newAfter;
+                if (newAfter !== null) isExhausted = false;
+
+                if (rawData && rawData.length > 0) {
+                    const newPosts = rawData.map(item => {
+                        const post = item.data;
+                        let text = post.title + (post.selftext ? ` - ${post.selftext}` : '');
+                        const lowerText = text.toLowerCase();
+                        
+                        TREND_KEYWORDS.forEach(kw => {
+                            if (lowerText.includes(kw)) {
+                                trendData[kw]++;
+                            }
+                        });
+
+                        const { sentiment, threatLevel } = getSentimentAndThreat(text);
+                        return { source: 'Reddit', id: post.id, text, displayText: text.length > 300 ? text.substring(0, 300) + '...' : text, user: post.author, subreddit: post.subreddit, permalink: `https://www.reddit.com${post.permalink}`, sentiment, threatLevel };
+                    });
+                    allPostsFound.push(...newPosts);
+                }
+            }
+            return { posts: allPostsFound, exhausted: isExhausted };
+        }
+
+        initializeDashboard();
+    });
+    </script>
+</body>
+</html>
