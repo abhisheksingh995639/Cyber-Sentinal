@@ -5,6 +5,7 @@ A real-time societal threat analysis dashboard built for the **Cybershield Hacka
 **[🌐 View Live Demo](https://cyber-sentinel-mp.onrender.com)**
 
 -----
+<img width="1903" height="915" alt="Screenshot 2025-09-28 101149" src="https://github.com/user-attachments/assets/885f90fe-376e-4c70-83da-c77036b9a674" />
 
 ## 📸 Screenshots
 
