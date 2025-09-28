@@ -1,7 +1,3 @@
-Of course. Here is a comprehensive `README.md` file for your GitHub project, written in Markdown.
-
------
-
 # Cyber Sentinel 🛡️
 
 A real-time societal threat analysis dashboard built for the **Cybershield Hackathon 2025**. This project provides a centralized command center for law enforcement to monitor, analyze, and act upon potential threats identified from open-source intelligence (OSINT) feeds like Reddit and news articles.
