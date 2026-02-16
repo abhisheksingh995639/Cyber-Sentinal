@@ -2,8 +2,6 @@
 
 A real-time societal threat analysis dashboard built for the **Cybershield Hackathon 2025**. This project provides a centralized command center for law enforcement to monitor, analyze, and act upon potential threats identified from open-source intelligence (OSINT) feeds like Reddit and news articles.
 
-![1759034641753](https://github.com/user-attachments/assets/e7cac5bd-df23-4e05-bc0b-0c1555273730)
-
 **[🌐 View Live Demo](https://cyber-sentinel-mp.onrender.com)**
 
 -----
